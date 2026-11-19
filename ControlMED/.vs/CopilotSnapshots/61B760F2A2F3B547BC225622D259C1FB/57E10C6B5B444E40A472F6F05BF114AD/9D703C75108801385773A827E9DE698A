@@ -1,0 +1,299 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Windows.Forms;
+using static ControlMED.Modelos;
+
+namespace ControlMED
+{
+    public partial class Form1 : Form
+    {
+        private List<Sucursal> listaSucursales = new List<Sucursal>();
+        private List<Medicamento> catalogoMedicamentos = new List<Medicamento>();
+        private List<InventarioItem> listaInventario = new List<InventarioItem>();
+        private int siguienteIdInventario = 1;
+        private bool cargandoCombos = false;
+
+        public Form1()
+        {
+            InitializeComponent();
+            ConfigurarControlesYEventos(); 
+            InicializarDatosPrueba();
+            CargarCombos();
+        }
+
+        private void ConfigurarControlesYEventos()
+        {
+            cbSucursal.DropDownStyle = ComboBoxStyle.DropDownList;
+            cbMedicamento.DropDownStyle = ComboBoxStyle.DropDownList;
+            modExistencia.Maximum = 10000;
+            modExistencia.Minimum = 0;
+
+            idInventario.Visible = true;
+            idInventario.DisplayIndex = 0;
+            ColumnMed.DisplayIndex = 1;
+            ColumnExistencia.DisplayIndex = 2;
+
+            buttonBuscar.Click -= buttonBuscar_Click;
+            buttonBuscar.Click += buttonBuscar_Click;
+
+            buttonLeer.Click -= buttonLeer_Click;
+            buttonLeer.Click += buttonLeer_Click;
+
+            buttonCrear.Click -= buttonCrear_Click;
+            buttonCrear.Click += buttonCrear_Click;
+
+            buttonActualizarExist.Click -= buttonActualizarExist_Click;
+            buttonActualizarExist.Click += buttonActualizarExist_Click;
+
+            buttonEliminar.Click -= buttonEliminar_Click;
+            buttonEliminar.Click += buttonEliminar_Click;
+
+            dgvInventario.SelectionChanged -= dgvInventario_SelectionChanged;
+            dgvInventario.SelectionChanged += dgvInventario_SelectionChanged;
+
+            dgvInventario.CellClick -= dgvInventario_CellClick;
+            dgvInventario.CellClick += dgvInventario_CellClick;
+        }
+
+        private void InicializarDatosPrueba()
+        {
+            listaSucursales = new List<Sucursal>
+            {
+                new Sucursal { IdSucursal = 1, Nombre = "Cantera" },
+                new Sucursal { IdSucursal = 2, Nombre = "Centro" },
+                new Sucursal { IdSucursal = 3, Nombre = "Norte" },
+                new Sucursal { IdSucursal = 4, Nombre = "Sur" }
+            };
+
+            catalogoMedicamentos = new List<Medicamento>
+            {
+                new Medicamento { IdMedicamento = 1, Nombre = "Amoxicilina Veterinaria 250mg" },
+                new Medicamento { IdMedicamento = 2, Nombre = "Meloxicam Gotas 15ml" },
+                new Medicamento { IdMedicamento = 3, Nombre = "Ivermectina Solución 1%" },
+                new Medicamento { IdMedicamento = 4, Nombre = "Vacuna Séxtuple Canina" },
+                new Medicamento { IdMedicamento = 5, Nombre = "Vacuna Triple Felina" },
+                new Medicamento { IdMedicamento = 6, Nombre = "Desparasitante Drontal Plus" },
+                new Medicamento { IdMedicamento = 7, Nombre = "Cefalexina Tabletas 500mg" }
+            };
+
+            AgregarInventarioInicial(1, 1, 25);
+            AgregarInventarioInicial(1, 2, 14);
+            AgregarInventarioInicial(1, 4, 30);
+            AgregarInventarioInicial(2, 1, 10);
+            AgregarInventarioInicial(2, 5, 18);
+            AgregarInventarioInicial(3, 3, 22);
+            AgregarInventarioInicial(4, 6, 40);
+        }
+
+        private void AgregarInventarioInicial(int idSucursal, int idMed, int existencia)
+        {
+            var suc = listaSucursales.First(s => s.IdSucursal == idSucursal);
+            var med = catalogoMedicamentos.First(m => m.IdMedicamento == idMed);
+
+            listaInventario.Add(new InventarioItem
+            {
+                IdInventario = siguienteIdInventario++,
+                IdSucursal = suc.IdSucursal,
+                NombreSucursal = suc.Nombre,
+                IdMedicamento = med.IdMedicamento,
+                NombreMedicamento = med.Nombre,
+                Existencia = existencia
+            });
+        }
+
+        private void CargarCombos()
+        {
+            cargandoCombos = true;
+
+            cbMedicamento.Items.Clear();
+            foreach (var med in catalogoMedicamentos)
+            {
+                cbMedicamento.Items.Add(med);
+            }
+            if (cbMedicamento.Items.Count > 0)
+                cbMedicamento.SelectedIndex = 0;
+
+            cbSucursal.Items.Clear();
+            foreach (var suc in listaSucursales)
+            {
+                cbSucursal.Items.Add(suc);
+            }
+
+            cargandoCombos = false;
+
+            if (cbSucursal.Items.Count > 0)
+            {
+                cbSucursal.SelectedIndex = 0;
+            }
+        }
+
+        private void MostrarInventarioPorSucursal(string filtroNombre = "")
+        {
+            if (cargandoCombos || cbSucursal.SelectedItem is not Sucursal sucursalActual)
+                return;
+
+            dgvInventario.Rows.Clear();
+
+            var consulta = listaInventario
+                .Where(i => i.IdSucursal == sucursalActual.IdSucursal);
+
+            if (!string.IsNullOrWhiteSpace(filtroNombre))
+            {
+                consulta = consulta.Where(i =>
+                    i.NombreMedicamento.Contains(filtroNombre.Trim(), StringComparison.OrdinalIgnoreCase));
+            }
+
+            foreach (var item in consulta)
+            {
+                dgvInventario.Rows.Add(item.NombreMedicamento, item.IdInventario, item.Existencia);
+            }
+
+            if (dgvInventario.Rows.Count > 0)
+            {
+                dgvInventario.Rows[0].Selected = true;
+                CargarFilaEnControles(dgvInventario.Rows[0]);
+            }
+            else
+            {
+                textBox1.Clear();
+                modExistencia.Value = 0;
+            }
+        }
+
+        private void CargarFilaEnControles(DataGridViewRow fila)
+        {
+            if (fila.Cells["idInventario"].Value == null)
+                return;
+
+            string nombreMed = fila.Cells["ColumnMed"].Value?.ToString() ?? "";
+            int idInv = Convert.ToInt32(fila.Cells["idInventario"].Value);
+            int existencia = Convert.ToInt32(fila.Cells["ColumnExistencia"].Value);
+
+            textBox1.Text = idInv.ToString();
+            modExistencia.Value = existencia;
+
+            var medEncontrado = catalogoMedicamentos.FirstOrDefault(m => m.Nombre == nombreMed);
+            if (medEncontrado != null)
+            {
+                cbMedicamento.SelectedItem = medEncontrado;
+            }
+        }
+
+        private void dgvInventario_SelectionChanged(object? sender, EventArgs e)
+        {
+            if (dgvInventario.SelectedRows.Count > 0)
+            {
+                CargarFilaEnControles(dgvInventario.SelectedRows[0]);
+            }
+        }
+
+        private void dgvInventario_CellClick(object? sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex >= 0 && e.RowIndex < dgvInventario.Rows.Count)
+            {
+                CargarFilaEnControles(dgvInventario.Rows[e.RowIndex]);
+            }
+        }
+
+        private void buttonBuscar_Click(object? sender, EventArgs e)
+        {
+            MostrarInventarioPorSucursal(Med.Text);
+        }
+
+
+        private void buttonLeer_Click(object? sender, EventArgs e)
+        {
+            Med.Clear();
+            MostrarInventarioPorSucursal();
+            MessageBox.Show("Inventario de la sucursal cargado correctamente.", "Leer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void buttonCrear_Click(object? sender, EventArgs e)
+        {
+            if (cbSucursal.SelectedItem is not Sucursal sucursalActual ||
+                cbMedicamento.SelectedItem is not Medicamento medSeleccionado)
+                return;
+
+            var existente = listaInventario.FirstOrDefault(i =>
+                i.IdSucursal == sucursalActual.IdSucursal &&
+                i.IdMedicamento == medSeleccionado.IdMedicamento);
+
+            if (existente != null)
+            {
+                MessageBox.Show($"'{medSeleccionado.Nombre}' ya existe en la sucursal {sucursalActual.Nombre} (ID: {existente.IdInventario}).\nUsa el botón 'Actualizar' para modificar su existencia.",
+                    "Registro existente", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            listaInventario.Add(new InventarioItem
+            {
+                IdInventario = siguienteIdInventario++,
+                IdSucursal = sucursalActual.IdSucursal,
+                NombreSucursal = sucursalActual.Nombre,
+                IdMedicamento = medSeleccionado.IdMedicamento,
+                NombreMedicamento = medSeleccionado.Nombre,
+                Existencia = (int)modExistencia.Value
+            });
+
+            MostrarInventarioPorSucursal();
+            MessageBox.Show($"Se agregó '{medSeleccionado.Nombre}' con {modExistencia.Value} unidades.", "Crear", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+       
+
+        private void buttonActualizarExist_Click(object? sender, EventArgs e)
+        {
+            if (!int.TryParse(textBox1.Text, out int idInv))
+            {
+                MessageBox.Show("Selecciona un medicamento de la tabla primero.", "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var item = listaInventario.FirstOrDefault(i => i.IdInventario == idInv);
+            if (item != null)
+            {
+                item.Existencia = (int)modExistencia.Value;
+                MostrarInventarioPorSucursal(Med.Text);
+                MessageBox.Show($"Existencia de '{item.NombreMedicamento}' actualizada a {item.Existencia}.", "Actualizar", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+     private void buttonEliminar_Click(object? sender, EventArgs e)
+        {
+            if (!int.TryParse(textBox1.Text, out int idInv))
+            {
+                MessageBox.Show("Selecciona un registro de la tabla para eliminar.", "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var item = listaInventario.FirstOrDefault(i => i.IdInventario == idInv);
+            if (item != null)
+            {
+                var resp = MessageBox.Show($"¿Eliminar '{item.NombreMedicamento}' de la sucursal {item.NombreSucursal}?",
+                    "Confirmar eliminación", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+                if (resp == DialogResult.Yes)
+                {
+                    listaInventario.Remove(item);
+                    textBox1.Clear();
+                    modExistencia.Value = 0;
+                    MostrarInventarioPorSucursal(Med.Text);
+                    MessageBox.Show("Registro eliminado del inventario.", "Eliminar", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+        }
+
+        private void cbSucursal_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            Med.Clear();
+            MostrarInventarioPorSucursal();
+        }
+
+        private void panel1_Paint(object sender, PaintEventArgs e) { }
+        private void label1_Click(object sender, EventArgs e) { }
+        private void panel2_Paint(object sender, PaintEventArgs e) { }
+        private void label1_Click_1(object sender, EventArgs e) { }
+        private void dgvInventario_CellContentClick(object sender, DataGridViewCellEventArgs e) { }
+        private void label1_Click_2(object sender, EventArgs e) { }
+        private void label1_Click_3(object sender, EventArgs e) { }
+    }
+}

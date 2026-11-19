@@ -1,0 +1,37 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace ControlMED
+{
+    internal class Modelos : Conexion
+    
+    {
+        public class Sucursal
+        {
+            public int IdSucursal { get; set; }
+            public string Nombre { get; set; } = string.Empty;
+
+            public override string ToString() => Nombre;
+        }
+
+        public class Medicamento
+        {
+            public int IdMedicamento { get; set; }
+            public string Nombre { get; set; } = string.Empty;
+
+            public override string ToString() => Nombre;
+        }
+
+        public class InventarioItem
+        {
+            public int IdInventario { get; set; }
+            public int IdSucursal { get; set; }
+            public string NombreSucursal { get; set; } = string.Empty;
+            public int IdMedicamento { get; set; }
+            public string NombreMedicamento { get; set; } = string.Empty;
+            public int Existencia { get; set; }
+        }
+    }
+}
+
